@@ -1,0 +1,10 @@
+# Build products
+/ble-midi-autoconnect
+/list-midi
+/midi-monitor
+/parser-tests
+*.dSYM/
+
+# Bundle is assembled by build.sh; only Info.plist is source
+BLEMIDIAutoConnect.app/Contents/MacOS/
+BLEMIDIAutoConnect.app/Contents/_CodeSignature/

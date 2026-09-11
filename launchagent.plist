@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.calebhugo.ble-midi-autoconnect</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>$HOME/Applications/BLEMIDIAutoConnect.app/Contents/MacOS/ble-midi-autoconnect</string>
+		<string>--name</string>
+		<string>microKEY</string>
+		<string>--port-name</string>
+		<string>microKEY2-25 Air (auto)</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>$HOME/Library/Logs/ble-midi-autoconnect.log</string>
+	<key>StandardOutPath</key>
+	<string>$HOME/Library/Logs/ble-midi-autoconnect.log</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+</dict>
+</plist>
