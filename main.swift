@@ -73,6 +73,9 @@ final class Connector: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate 
     private var parser = BLEMIDIParser()
     private var virtual: VirtualSource?
     private let portName: String
+    private var retryTimer: DispatchSourceTimer?
+    private var retries = 0
+    private var linked = false  // true between didConnect and didDisconnect
 
     init(nameMatch: String, portName: String) {
         self.nameMatch = nameMatch.lowercased()
@@ -80,6 +83,29 @@ final class Connector: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate 
         super.init()
         virtual = VirtualSource(name: portName)
         central = CBCentralManager(delegate: self, queue: nil)
+        startRetryTimer()
+    }
+
+    /// A pending connect can go stale (seen after reboots and sleep/wake): the
+    /// keyboard advertises but CoreBluetooth never fires didConnect. Cancel and
+    /// re-issue it periodically until it lands.
+    private func startRetryTimer() {
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + 20, repeating: 20)
+        t.setEventHandler { [weak self] in self?.retryPendingConnect() }
+        t.resume()
+        retryTimer = t
+    }
+
+    private func retryPendingConnect() {
+        guard central.state == .poweredOn, let p = target, p.state != .connected else {
+            retries = 0
+            return
+        }
+        retries += 1
+        if retries % 10 == 1 { log("pending connect still waiting; re-issuing (retry \(retries))") }
+        central.cancelPeripheralConnection(p)
+        central.connect(p, options: nil)
     }
 
     private func startScan() {
@@ -117,7 +143,7 @@ final class Connector: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate 
     func centralManagerDidUpdateState(_ c: CBCentralManager) {
         switch c.state {
         case .poweredOn:  log("bluetooth powered on"); startScan()
-        case .poweredOff: log("bluetooth powered off"); target = nil
+        case .poweredOff: log("bluetooth powered off"); target = nil; linked = false
         case .unauthorized:
             log("ERROR: bluetooth permission denied — System Settings > Privacy & Security > Bluetooth")
         case .unsupported: log("ERROR: BLE unsupported")
@@ -137,6 +163,7 @@ final class Connector: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate 
 
     func centralManager(_ c: CBCentralManager, didConnect p: CBPeripheral) {
         log("CONNECTED \(p.name ?? "unnamed") \(p.identifier)")
+        linked = true
         UserDefaults.standard.set(p.identifier.uuidString, forKey: defaultsKey)
         parser.reset()
         p.discoverServices([midiServiceUUID])
@@ -149,6 +176,9 @@ final class Connector: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate 
     }
 
     func centralManager(_ c: CBCentralManager, didDisconnectPeripheral p: CBPeripheral, error: Error?) {
+        // A cancelled pending connect may report here; the retry timer owns it.
+        guard linked else { return }
+        linked = false
         log("disconnected (\(error?.localizedDescription ?? "clean")); awaiting power-on")
         parser.reset()
         target = nil

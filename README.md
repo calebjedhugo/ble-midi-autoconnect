@@ -81,6 +81,11 @@ Target another keyboard by editing `--name` / `--port-name` in the plist
 - **The keyboard only advertises on battery power.** Plugged into USB it is a USB
   MIDI device and the radio is off.
 - microKEY auto-power-off (4 hr) drops the link; the agent reconnects in ~4s.
+- **A pending connect can go stale** (seen 2026-10-24 after a reboot): the
+  keyboard advertises, but CoreBluetooth never fires `didConnect`, and
+  power-cycling the keyboard doesn't help. The agent now cancels and re-issues
+  the connect every 20s (logs every 10th retry). Manual fix if it ever recurs:
+  `launchctl kickstart -k gui/$(id -u)/com.calebhugo.ble-midi-autoconnect`
 - Apple's `...Bluetooth` endpoint and this `(auto)` endpoint can coexist — both
   processes share the BLE link. If both are up, apps may see the keyboard twice.
 
@@ -102,6 +107,7 @@ Target another keyboard by editing `--name` / `--port-name` in the plist
 - Parser: 13/13 unit tests (`./parser-tests`).
 - Keyboard power-cycle: disconnect -> reconnect in ~4s, notes flow, virtual port
   never drops.
-- Mac reboot: agent auto-starts at login, Bluetooth grant survives, pending
-  connect fires the moment the keyboard is switched on. Apple's `...Bluetooth`
+- Mac reboot: agent auto-starts at login, and the Bluetooth grant survives.
+  Usually the pending connect fires as soon as the keyboard is switched on;
+  when it doesn't, the 20s retry catches it. Apple's `...Bluetooth`
   endpoint stays absent - the `(auto)` port is the only one, and it works.
